@@ -1,0 +1,87 @@
+[build-system]
+requires = ["uv_build>=0.8.0"]
+build-backend = "uv_build"
+
+[project]
+name = "color-memory-maze"
+version = "1.0.0"
+description = "Memory Maze environments with DrStrategy enhancements for reinforcement learning research"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{name="Tim Joseph", email="tim@mctigger.com"}]
+keywords = [
+    "reinforcement-learning", 
+    "environment", 
+    "gymnasium", 
+    "color-memory-maze",
+    "drstrategy",
+    "maze-navigation",
+    "partial-observability",
+    "mujoco-environments",
+    "multi-room-maze"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Environment :: Console",
+    "Typing :: Typed",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "gymnasium>=1.0.0",
+    "dm_control>=1.0.31",
+    "numpy>=1.26",
+    "Pillow>=8.0.0",
+    "matplotlib>=3.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=22.0,<25.0",
+    "isort>=5.10,<6.0",
+    "flake8>=4.0,<7.0",
+    "build>=0.8.0,<2.0.0",
+    "twine>=4.0.0,<6.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mctigger/memory-maze"
+Repository = "https://github.com/mctigger/memory-maze"
+"Bug Tracker" = "https://github.com/mctigger/memory-maze/issues"
+Documentation = "https://github.com/mctigger/memory-maze#readme"
+
+[tool.uv.build-backend]
+module-name = "color_memory_maze"
+source-include = [
+    "examples/**",
+    "data/**"
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "F403",  # 'from module import *' used; unable to detect undefined names
+    "F405",  # name may be undefined, or defined from star imports  
+]
