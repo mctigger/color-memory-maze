@@ -92,10 +92,10 @@ class ConsistentTargetNavigator:
     def get_action_from_key(self, key):
         """Convert key press to environment action"""
         action_map = {
-            "w": np.array([-1.0, 0.0]),  # Move forward
+            "w": np.array([-0.5, 0.0]),  # Move forward
             "s": np.array([0.0, 0.0]),  # No-op
-            "a": np.array([0.0, -1.0]),  # Turn left
-            "d": np.array([0.0, +1.0]),  # Turn right
+            "a": np.array([0.0, -0.5]),  # Turn left
+            "d": np.array([0.0, +0.5]),  # Turn right
         }
         return action_map.get(key)
 

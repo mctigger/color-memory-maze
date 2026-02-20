@@ -170,80 +170,29 @@ class DrStrategyMazeEnv(gym.Env):
         self._env.reset()
         self._goal_manager.prerender(self._render_on_pose)
 
-        # Cache immutable references
-        self._task = self._env._task
-        self._n_sub_steps = self._env._n_sub_steps
-        self._time_limit = self._env._time_limit
-        cam_spec = self._env.observation_spec()["walker/egocentric_camera"]
-        self._cam_height = cam_spec.shape[0]
-        self._cam_width = cam_spec.shape[1]
-
-        # Cache physics-dependent references (re-cached on reset)
-        self._cache_physics_refs()
-
-    def _cache_physics_refs(self) -> None:
-        """Cache physics-dependent references for fast stepping."""
-        physics = self._env._physics
-        self._physics = physics
-        self._walker_body = physics.bind(self._task._walker.root_body)
-        cam_element = self._task._walker.observables.egocentric_camera._mjcf_element
-        self._camera_id = physics.model.name2id(
-            cam_element.full_identifier, "camera"
-        )
-        self._target_color_fn = self._task.task_observables[
-            "target_color"
-        ].observation_callable(physics, np.random.RandomState(0))
-
     def reset(self, *, seed=None, options=None) -> Tuple[Any, dict]:
         if seed is not None:
             self.np_random, _ = seeding.np_random(seed)
         ts = self._env.reset()
-        # Re-cache after reset (physics may have been recompiled)
-        self._cache_physics_refs()
         self._goal_manager.update()
         obs = self._extract_obs(ts.observation)
         obs["goal_image"] = self._goal_manager.get_image()
         return obs, {}
 
     def step(self, action) -> Tuple[Any, float, bool, bool, dict]:
-        # Bypass composer.Environment.step() — directly step physics and render.
-        # This avoids ~5ms of composer overhead per step (observation updater,
-        # target_sphere contact checking on every substep, hooks, etc.).
-        physics = self._physics
-        physics.set_control(action)
-        for _ in range(self._n_sub_steps):
-            physics.step()
-
-        # Render camera directly
-        image = physics.render(
-            height=self._cam_height,
-            width=self._cam_width,
-            camera_id=self._camera_id,
-        )
-
-        # Extract position and orientation directly from physics bindings
-        walker_xy = self._walker_body.xpos[:2]
-        walker_ji = walker_xy / self._maze_xy_scale + self._center_ji
-        orientation = self._walker_body.xmat.reshape(3, 3)[:2, 1]
-
-        obs = {
-            "image": image,
-            "target_color": self._target_color_fn(),
-            "position": walker_ji,
-            "direction": orientation,
-            "goal_image": self._goal_manager.get_image(),
-        }
+        ts = self._env.step(action)
+        obs = self._extract_obs(ts.observation)
+        obs["goal_image"] = self._goal_manager.get_image()
 
         is_goal_achieved, distance = self._goal_manager.is_achieved(
-            walker_ji, orientation
+            obs["position"], obs["direction"]
         )
         reward = 1.0 if is_goal_achieved else 0.0
 
         if is_goal_achieved:
             self._goal_manager.update()
 
-        # Check time limit for truncation
-        truncated = physics.time() >= self._time_limit
+        truncated = ts.last()
         terminated = False
         info = {"success": int(is_goal_achieved), "distance": distance}
 

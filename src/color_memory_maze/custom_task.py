@@ -3,7 +3,10 @@ from typing import Any, Type
 import numpy as np
 from dm_control import composer
 
-from color_memory_maze.maze import RollingBallWithFriction
+from color_memory_maze.maze import (
+    InertRollingBallWithFriction,
+    InertTargetSphere,
+)
 from color_memory_maze.maze_layouts import Maze7x7, Maze15x15
 from color_memory_maze.skybox import FixedSkyBox
 from color_memory_maze.unified_maze_arena import MazeConfig, UnifiedMazeWithTargetsArena
@@ -28,7 +31,7 @@ def _create_drstrategy_env(
 
     layout_config = layout_config_class()
     random_state = np.random.RandomState(seed)
-    agent = RollingBallWithFriction(camera_height=0.3)
+    agent = InertRollingBallWithFriction(camera_height=0.3)
 
     maze_config = MazeConfig(
         xy_scale=2.0,
@@ -57,6 +60,8 @@ def _create_drstrategy_env(
         target_reward_scale=1.0,
         enable_global_task_observables=True,
         camera_resolution=camera_resolution,
+        target_class=InertTargetSphere,
+        disable_unused_observables=True,
     )
 
     task = UnifiedMemoryMazeTask(

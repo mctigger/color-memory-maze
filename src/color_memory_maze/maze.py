@@ -1,5 +1,6 @@
 import labmaze
 import numpy as np
+from dm_control.locomotion.props import target_sphere
 from dm_control.locomotion.walkers import jumping_ball
 
 DEFAULT_CONTROL_TIMESTEP = 0.025
@@ -29,6 +30,17 @@ TARGET_COLORS = [
 ]
 
 
+class InertTargetSphere(target_sphere.TargetSphere):
+    """TargetSphere without per-substep contact checking.
+
+    dm_control's hook system detects the trivial after_substep via bytecode
+    inspection and skips it entirely, eliminating 50 contact-list scans/step.
+    """
+
+    def after_substep(self, physics, random_state):
+        pass
+
+
 class RollingBallWithFriction(jumping_ball.RollingBallWithHead):
     def _build(self, roll_damping=5.0, steer_damping=20.0, **kwargs):
         super()._build(**kwargs)
@@ -36,6 +48,17 @@ class RollingBallWithFriction(jumping_ball.RollingBallWithHead):
         # first-person navigation control, without much acceleration/deceleration.
         self._mjcf_root.find("joint", "roll").damping = roll_damping
         self._mjcf_root.find("joint", "steer").damping = steer_damping
+
+
+class InertRollingBallWithFriction(RollingBallWithFriction):
+    """Rolling ball without per-substep mj_subtreeVel calls.
+
+    mj_subtreeVel is only needed for proprioception observables (torso velocity,
+    etc.) which DrStrategy environments don't use.
+    """
+
+    def after_substep(self, physics, random_state):
+        pass
 
 
 class TextMazeVaryingWallsFixedLayout(labmaze.FixedMazeWithRandomGoals):
