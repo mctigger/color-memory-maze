@@ -50,6 +50,7 @@ class TaskConfig:
     n_targets: int = 3
     target_reward_scale: float = 1.0
     enable_global_task_observables: bool = False
+    enable_target_observables: bool = False
     camera_resolution: int = 64
 
 class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
@@ -100,8 +101,10 @@ class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
             self._maze_config.target_height_above_ground,
         )
 
-        # Setup observables if requested
-        if self._task_config.enable_global_task_observables:
+        # Setup per-target observables (target_abs_*/target_rel_*) if requested.
+        # These are expensive (computed every step) and only needed if
+        # downstream code reads them from observations.
+        if self._task_config.enable_target_observables:
             self._setup_target_observables(walker, self._task_config.n_targets)
 
         # Configure task observables

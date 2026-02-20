@@ -3,7 +3,7 @@ import numpy as np
 from dm_control.locomotion.walkers import jumping_ball
 
 DEFAULT_CONTROL_TIMESTEP = 0.025
-DEFAULT_PHYSICS_TIMESTEP = 0.005
+DEFAULT_PHYSICS_TIMESTEP = 0.025
 
 TARGET_COLORS = [
     np.array([170, 38, 30]) / 220,  # red

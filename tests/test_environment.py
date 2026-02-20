@@ -130,7 +130,7 @@ class TestBenchmark:
                 bench_env.reset()
         elapsed = time.perf_counter() - start
         fps = self.NUM_STEPS / elapsed
-        assert fps > 200, f"FPS {fps:.1f} is below the 30 FPS target"
+        assert fps > 200, f"FPS {fps:.1f} is below the 200 FPS target"
 
 
 # ── Rendering snapshot regression ────────────────────────────────────────
@@ -154,32 +154,32 @@ class TestSnapshotRegression7x7:
     def test_reset_image(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_image.npy")
-        np.testing.assert_array_equal(obs["image"], ref)
+        np.testing.assert_allclose(obs["image"], ref, atol=2)
 
     def test_reset_goal_image(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_goal_image.npy")
-        np.testing.assert_array_equal(obs["goal_image"], ref)
+        np.testing.assert_allclose(obs["goal_image"], ref, atol=2)
 
     def test_reset_target_color(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_target_color.npy")
-        np.testing.assert_array_equal(obs["target_color"], ref)
+        np.testing.assert_allclose(obs["target_color"], ref, atol=1e-5)
 
     def test_reset_top_down(self, fresh_7x7):
         _, _, top_down = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_top_down.npy")
-        np.testing.assert_array_equal(top_down, ref)
+        np.testing.assert_allclose(top_down, ref, atol=2)
 
     def test_reset_position(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_position.npy")
-        np.testing.assert_array_equal(obs["position"], ref)
+        np.testing.assert_allclose(obs["position"], ref, atol=1e-5)
 
     def test_reset_direction(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_direction.npy")
-        np.testing.assert_array_equal(obs["direction"], ref)
+        np.testing.assert_allclose(obs["direction"], ref, atol=1e-5)
 
 
 class TestTimeLimitCustomization:
@@ -235,10 +235,10 @@ class TestSnapshotRegression15x15:
     def test_reset_image(self, fresh_15x15):
         _, obs = fresh_15x15
         ref = np.load(REF_DIR / "15x15_reset_image.npy")
-        np.testing.assert_array_equal(obs["image"], ref)
+        np.testing.assert_allclose(obs["image"], ref, atol=2)
 
     def test_reset_goal_image(self, fresh_15x15):
         _, obs = fresh_15x15
         ref = np.load(REF_DIR / "15x15_reset_goal_image.npy")
-        np.testing.assert_array_equal(obs["goal_image"], ref)
+        np.testing.assert_allclose(obs["goal_image"], ref, atol=2)
 

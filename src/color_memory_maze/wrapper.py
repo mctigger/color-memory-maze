@@ -7,6 +7,7 @@ and the gymnasium API.
 """
 
 import logging
+import math
 from contextlib import contextmanager
 from typing import Any, List, Tuple
 
@@ -91,24 +92,13 @@ class GoalManager:
         return self._visual_goals[self._goal_idx[0]][self._goal_idx[1]]
 
     def is_achieved(self, position, direction) -> tuple[bool, float]:
-        """Return (achieved, L1_distance). Inlines former get3D lambda."""
-        position_3d = np.array([position[0], 0, position[1]], dtype=np.float32)
-        goal_position = self._goal_pose[:3]
+        """Return (achieved, L1_distance). Uses scalar math to avoid numpy allocations."""
+        gp = self._goal_pose
+        diff = abs(float(position[0]) - float(gp[0])) + abs(float(gp[1])) + abs(float(position[1]) - float(gp[2]))
 
-        diff = float(
-            np.sum(
-                np.abs(
-                    position_3d.astype(np.float32)
-                    - np.array(goal_position, dtype=np.float32)
-                )
-            )
-        )
-
-        direction_angle = np.arctan2(direction[1], direction[0])
-        direction_g = np.arctan2(self._goal_pose[4], self._goal_pose[3])
-        diff_direction = float(
-            np.abs((direction_angle - direction_g + np.pi) % (2 * np.pi) - np.pi)
-        )
+        direction_angle = math.atan2(float(direction[1]), float(direction[0]))
+        direction_g = math.atan2(float(gp[4]), float(gp[3]))
+        diff_direction = abs((direction_angle - direction_g + math.pi) % (2 * math.pi) - math.pi)
 
         achieved = (
             diff < self._threshold and diff_direction <= self._direction_threshold
@@ -180,33 +170,81 @@ class DrStrategyMazeEnv(gym.Env):
         self._env.reset()
         self._goal_manager.prerender(self._render_on_pose)
 
+        # Cache immutable references
+        self._task = self._env._task
+        self._n_sub_steps = self._env._n_sub_steps
+        self._time_limit = self._env._time_limit
+        cam_spec = self._env.observation_spec()["walker/egocentric_camera"]
+        self._cam_height = cam_spec.shape[0]
+        self._cam_width = cam_spec.shape[1]
+
+        # Cache physics-dependent references (re-cached on reset)
+        self._cache_physics_refs()
+
+    def _cache_physics_refs(self) -> None:
+        """Cache physics-dependent references for fast stepping."""
+        physics = self._env._physics
+        self._physics = physics
+        self._walker_body = physics.bind(self._task._walker.root_body)
+        cam_element = self._task._walker.observables.egocentric_camera._mjcf_element
+        self._camera_id = physics.model.name2id(
+            cam_element.full_identifier, "camera"
+        )
+        self._target_color_fn = self._task.task_observables[
+            "target_color"
+        ].observation_callable(physics, np.random.RandomState(0))
+
     def reset(self, *, seed=None, options=None) -> Tuple[Any, dict]:
         if seed is not None:
             self.np_random, _ = seeding.np_random(seed)
         ts = self._env.reset()
+        # Re-cache after reset (physics may have been recompiled)
+        self._cache_physics_refs()
         self._goal_manager.update()
         obs = self._extract_obs(ts.observation)
         obs["goal_image"] = self._goal_manager.get_image()
         return obs, {}
 
     def step(self, action) -> Tuple[Any, float, bool, bool, dict]:
-        ts = self._env.step(action)
-        assert not ts.first(), "dm_env.step() caused reset, reward will be undefined."
-        assert ts.reward is not None
+        # Bypass composer.Environment.step() — directly step physics and render.
+        # This avoids ~5ms of composer overhead per step (observation updater,
+        # target_sphere contact checking on every substep, hooks, etc.).
+        physics = self._physics
+        physics.set_control(action)
+        for _ in range(self._n_sub_steps):
+            physics.step()
 
-        obs = self._extract_obs(ts.observation)
-        obs["goal_image"] = self._goal_manager.get_image()
+        # Render camera directly
+        image = physics.render(
+            height=self._cam_height,
+            width=self._cam_width,
+            camera_id=self._camera_id,
+        )
+
+        # Extract position and orientation directly from physics bindings
+        walker_xy = self._walker_body.xpos[:2]
+        walker_ji = walker_xy / self._maze_xy_scale + self._center_ji
+        orientation = self._walker_body.xmat.reshape(3, 3)[:2, 1]
+
+        obs = {
+            "image": image,
+            "target_color": self._target_color_fn(),
+            "position": walker_ji,
+            "direction": orientation,
+            "goal_image": self._goal_manager.get_image(),
+        }
 
         is_goal_achieved, distance = self._goal_manager.is_achieved(
-            obs["position"], obs["direction"]
+            walker_ji, orientation
         )
         reward = 1.0 if is_goal_achieved else 0.0
 
         if is_goal_achieved:
             self._goal_manager.update()
 
-        terminated = ts.last() and ts.discount == 0.0
-        truncated = ts.last() and ts.discount != 0.0
+        # Check time limit for truncation
+        truncated = physics.time() >= self._time_limit
+        terminated = False
         info = {"success": int(is_goal_achieved), "distance": distance}
 
         return obs, reward, terminated, truncated, info
