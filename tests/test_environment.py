@@ -121,7 +121,7 @@ class TestBenchmark:
         yield env
         env.close()
 
-    def test_fps(self, bench_env):
+    def test_fps_7x7(self, bench_env):
         action = np.array([0.0, 0.0])
         start = time.perf_counter()
         for _ in range(self.NUM_STEPS):
@@ -130,7 +130,25 @@ class TestBenchmark:
                 bench_env.reset()
         elapsed = time.perf_counter() - start
         fps = self.NUM_STEPS / elapsed
-        assert fps > 200, f"FPS {fps:.1f} is below the 200 FPS target"
+        assert fps > 200, f"7x7 FPS {fps:.1f} is below the 200 FPS target"
+
+    @pytest.fixture(scope="class")
+    def bench_env_15x15(self):
+        env = gym.make("MemoryMaze-cmaze-15x15-drstrategy-v0")
+        env.reset()
+        yield env
+        env.close()
+
+    def test_fps_15x15(self, bench_env_15x15):
+        action = np.array([0.0, 0.0])
+        start = time.perf_counter()
+        for _ in range(self.NUM_STEPS):
+            obs, reward, terminated, truncated, info = bench_env_15x15.step(action)
+            if terminated or truncated:
+                bench_env_15x15.reset()
+        elapsed = time.perf_counter() - start
+        fps = self.NUM_STEPS / elapsed
+        assert fps > 200, f"15x15 FPS {fps:.1f} is below the 200 FPS target"
 
 
 # ── Rendering snapshot regression ────────────────────────────────────────
