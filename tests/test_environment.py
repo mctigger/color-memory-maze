@@ -121,7 +121,7 @@ class TestBenchmark:
         yield env
         env.close()
 
-    def test_fps_above_200(self, bench_env):
+    def test_fps(self, bench_env):
         action = np.array([0.0, 0.0])
         start = time.perf_counter()
         for _ in range(self.NUM_STEPS):
@@ -130,7 +130,7 @@ class TestBenchmark:
                 bench_env.reset()
         elapsed = time.perf_counter() - start
         fps = self.NUM_STEPS / elapsed
-        assert fps > 200, f"FPS {fps:.1f} is below the 200 FPS target"
+        assert fps > 200, f"FPS {fps:.1f} is below the 30 FPS target"
 
 
 # ── Rendering snapshot regression ────────────────────────────────────────
