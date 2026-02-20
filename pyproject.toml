@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "color-memory-maze"
-version = "1.0.0"
+version = "1.1.0"
 description = "Memory Maze environments with DrStrategy enhancements for reinforcement learning research"
 readme = "README.md"
 license = {file = "LICENSE"}
