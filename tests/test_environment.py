@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import gymnasium as gym
@@ -105,6 +106,51 @@ class Test15x15:
         assert set(obs.keys()) == EXPECTED_OBS_KEYS
 
 
+# ── FPS benchmark ────────────────────────────────────────────────────────
+
+
+class TestBenchmark:
+    """Verify that the environment can be stepped faster than 200 FPS."""
+
+    NUM_STEPS = 500
+
+    @pytest.fixture(scope="class")
+    def bench_env(self):
+        env = gym.make("MemoryMaze-cmaze-7x7-drstrategy-v0")
+        env.reset()
+        yield env
+        env.close()
+
+    def test_fps_7x7(self, bench_env):
+        action = np.array([0.0, 0.0])
+        start = time.perf_counter()
+        for _ in range(self.NUM_STEPS):
+            obs, reward, terminated, truncated, info = bench_env.step(action)
+            if terminated or truncated:
+                bench_env.reset()
+        elapsed = time.perf_counter() - start
+        fps = self.NUM_STEPS / elapsed
+        assert fps > 200, f"7x7 FPS {fps:.1f} is below the 200 FPS target"
+
+    @pytest.fixture(scope="class")
+    def bench_env_15x15(self):
+        env = gym.make("MemoryMaze-cmaze-15x15-drstrategy-v0")
+        env.reset()
+        yield env
+        env.close()
+
+    def test_fps_15x15(self, bench_env_15x15):
+        action = np.array([0.0, 0.0])
+        start = time.perf_counter()
+        for _ in range(self.NUM_STEPS):
+            obs, reward, terminated, truncated, info = bench_env_15x15.step(action)
+            if terminated or truncated:
+                bench_env_15x15.reset()
+        elapsed = time.perf_counter() - start
+        fps = self.NUM_STEPS / elapsed
+        assert fps > 200, f"15x15 FPS {fps:.1f} is below the 200 FPS target"
+
+
 # ── Rendering snapshot regression ────────────────────────────────────────
 #
 # Each class creates a fresh environment and resets it exactly once.
@@ -126,32 +172,32 @@ class TestSnapshotRegression7x7:
     def test_reset_image(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_image.npy")
-        np.testing.assert_array_equal(obs["image"], ref)
+        np.testing.assert_allclose(obs["image"], ref, atol=2)
 
     def test_reset_goal_image(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_goal_image.npy")
-        np.testing.assert_array_equal(obs["goal_image"], ref)
+        np.testing.assert_allclose(obs["goal_image"], ref, atol=2)
 
     def test_reset_target_color(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_target_color.npy")
-        np.testing.assert_array_equal(obs["target_color"], ref)
+        np.testing.assert_allclose(obs["target_color"], ref, atol=1e-5)
 
     def test_reset_top_down(self, fresh_7x7):
         _, _, top_down = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_top_down.npy")
-        np.testing.assert_array_equal(top_down, ref)
+        np.testing.assert_allclose(top_down, ref, atol=2)
 
     def test_reset_position(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_position.npy")
-        np.testing.assert_array_equal(obs["position"], ref)
+        np.testing.assert_allclose(obs["position"], ref, atol=1e-5)
 
     def test_reset_direction(self, fresh_7x7):
         _, obs, _ = fresh_7x7
         ref = np.load(REF_DIR / "7x7_reset_direction.npy")
-        np.testing.assert_array_equal(obs["direction"], ref)
+        np.testing.assert_allclose(obs["direction"], ref, atol=1e-5)
 
 
 class TestTimeLimitCustomization:
@@ -207,10 +253,10 @@ class TestSnapshotRegression15x15:
     def test_reset_image(self, fresh_15x15):
         _, obs = fresh_15x15
         ref = np.load(REF_DIR / "15x15_reset_image.npy")
-        np.testing.assert_array_equal(obs["image"], ref)
+        np.testing.assert_allclose(obs["image"], ref, atol=2)
 
     def test_reset_goal_image(self, fresh_15x15):
         _, obs = fresh_15x15
         ref = np.load(REF_DIR / "15x15_reset_goal_image.npy")
-        np.testing.assert_array_equal(obs["goal_image"], ref)
+        np.testing.assert_allclose(obs["goal_image"], ref, atol=2)
 

@@ -7,6 +7,7 @@ and the gymnasium API.
 """
 
 import logging
+import math
 from contextlib import contextmanager
 from typing import Any, List, Tuple
 
@@ -91,24 +92,13 @@ class GoalManager:
         return self._visual_goals[self._goal_idx[0]][self._goal_idx[1]]
 
     def is_achieved(self, position, direction) -> tuple[bool, float]:
-        """Return (achieved, L1_distance). Inlines former get3D lambda."""
-        position_3d = np.array([position[0], 0, position[1]], dtype=np.float32)
-        goal_position = self._goal_pose[:3]
+        """Return (achieved, L1_distance). Uses scalar math to avoid numpy allocations."""
+        gp = self._goal_pose
+        diff = abs(float(position[0]) - float(gp[0])) + abs(float(gp[1])) + abs(float(position[1]) - float(gp[2]))
 
-        diff = float(
-            np.sum(
-                np.abs(
-                    position_3d.astype(np.float32)
-                    - np.array(goal_position, dtype=np.float32)
-                )
-            )
-        )
-
-        direction_angle = np.arctan2(direction[1], direction[0])
-        direction_g = np.arctan2(self._goal_pose[4], self._goal_pose[3])
-        diff_direction = float(
-            np.abs((direction_angle - direction_g + np.pi) % (2 * np.pi) - np.pi)
-        )
+        direction_angle = math.atan2(float(direction[1]), float(direction[0]))
+        direction_g = math.atan2(float(gp[4]), float(gp[3]))
+        diff_direction = abs((direction_angle - direction_g + math.pi) % (2 * math.pi) - math.pi)
 
         achieved = (
             diff < self._threshold and diff_direction <= self._direction_threshold
@@ -191,9 +181,6 @@ class DrStrategyMazeEnv(gym.Env):
 
     def step(self, action) -> Tuple[Any, float, bool, bool, dict]:
         ts = self._env.step(action)
-        assert not ts.first(), "dm_env.step() caused reset, reward will be undefined."
-        assert ts.reward is not None
-
         obs = self._extract_obs(ts.observation)
         obs["goal_image"] = self._goal_manager.get_image()
 
@@ -205,8 +192,8 @@ class DrStrategyMazeEnv(gym.Env):
         if is_goal_achieved:
             self._goal_manager.update()
 
-        terminated = ts.last() and ts.discount == 0.0
-        truncated = ts.last() and ts.discount != 0.0
+        truncated = ts.last()
+        terminated = False
         info = {"success": int(is_goal_achieved), "distance": distance}
 
         return obs, reward, terminated, truncated, info

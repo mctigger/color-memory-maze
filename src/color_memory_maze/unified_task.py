@@ -12,8 +12,8 @@ Design principles:
 """
 
 import functools
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, Type
 
 import numpy as np
 from dm_control import mjcf
@@ -50,7 +50,15 @@ class TaskConfig:
     n_targets: int = 3
     target_reward_scale: float = 1.0
     enable_global_task_observables: bool = False
+    enable_target_observables: bool = False
     camera_resolution: int = 64
+
+    # Target class: override with InertTargetSphere to skip per-substep contact checks
+    target_class: Type = field(default_factory=lambda: target_sphere.TargetSphere)
+
+    # Observable management: when True, disables all walker observables except
+    # egocentric_camera, and disables unused task observables
+    disable_unused_observables: bool = False
 
 class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
     """Unified memory maze task supporting both original and custom behaviors.
@@ -100,8 +108,10 @@ class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
             self._maze_config.target_height_above_ground,
         )
 
-        # Setup observables if requested
-        if self._task_config.enable_global_task_observables:
+        # Setup per-target observables (target_abs_*/target_rel_*) if requested.
+        # These are expensive (computed every step) and only needed if
+        # downstream code reads them from observations.
+        if self._task_config.enable_target_observables:
             self._setup_target_observables(walker, self._task_config.n_targets)
 
         # Configure task observables
@@ -109,6 +119,10 @@ class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
 
         # Set camera resolution
         self._configure_cameras(self._task_config.camera_resolution)
+
+        # Disable unused observables for performance
+        if self._task_config.disable_unused_observables:
+            self._disable_unused_observables()
 
     def _create_targets(
         self, n_targets: int, radius: float, height_above_ground: float
@@ -119,9 +133,10 @@ class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
         """
         targets = []
 
+        target_cls = self._task_config.target_class
         for i in range(n_targets):
             color = self._get_target_color(i)
-            target = target_sphere.TargetSphere(
+            target = target_cls(
                 radius=radius,
                 height_above_ground=radius + height_above_ground,
                 rgb1=tuple(color * 1.0),
@@ -186,6 +201,23 @@ class UnifiedMemoryMazeTask(random_goal_maze.NullGoalMaze):
         self._walker.observables.egocentric_camera.width = resolution
         self._maze_arena.observables.top_camera.height = resolution
         self._maze_arena.observables.top_camera.width = resolution
+
+    def _disable_unused_observables(self) -> None:
+        """Disable walker and task observables not needed by DrStrategy.
+
+        Keeps only: egocentric_camera, target_color, absolute_position,
+        absolute_orientation. Disabling prevents the observation updater from
+        computing these every step.
+        """
+        keep_walker = {"egocentric_camera"}
+        for name, obs in self._walker.observables._observables.items():
+            if name not in keep_walker:
+                obs.enabled = False
+
+        keep_task = {"target_color", "absolute_position", "absolute_orientation"}
+        for name, obs in self._task_observables.items():
+            if name not in keep_task:
+                obs.enabled = False
 
     @property
     def task_observables(self):
