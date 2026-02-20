@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import gymnasium as gym
@@ -103,6 +104,33 @@ class Test15x15:
     def test_15x15_env_creation(self, env_15x15):
         obs, _ = env_15x15.reset()
         assert set(obs.keys()) == EXPECTED_OBS_KEYS
+
+
+# ── FPS benchmark ────────────────────────────────────────────────────────
+
+
+class TestBenchmark:
+    """Verify that the environment can be stepped faster than 200 FPS."""
+
+    NUM_STEPS = 500
+
+    @pytest.fixture(scope="class")
+    def bench_env(self):
+        env = gym.make("MemoryMaze-cmaze-7x7-drstrategy-v0")
+        env.reset()
+        yield env
+        env.close()
+
+    def test_fps_above_200(self, bench_env):
+        action = np.array([0.0, 0.0])
+        start = time.perf_counter()
+        for _ in range(self.NUM_STEPS):
+            obs, reward, terminated, truncated, info = bench_env.step(action)
+            if terminated or truncated:
+                bench_env.reset()
+        elapsed = time.perf_counter() - start
+        fps = self.NUM_STEPS / elapsed
+        assert fps > 200, f"FPS {fps:.1f} is below the 200 FPS target"
 
 
 # ── Rendering snapshot regression ────────────────────────────────────────
